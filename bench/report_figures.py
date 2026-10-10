@@ -24,23 +24,23 @@ plt.rcParams.update({
 })
 
 ZH = {  # labels of the Chinese version; function and target names stay as they are
-    "percentile among the target's code regions (lower = more suspicious)": "在目标所有代码区域中的百分位（越低越可疑）",
+    "percentile among the target's chunks (lower = more suspicious)": "在目标所有片段中的百分位（越低越可疑）",
     "LLM (Qwen3-4B J-lens probe), median 27.0": "LLM（Qwen3-4B J-lens probe），中位数 27.0",
     "function size only, median 14.6": "只看函数大小，中位数 14.6",
     "LLM scores shuffled, median 56.2": "打乱的 LLM 分数，中位数 56.2",
     "woff2: Buffer::Read (called from ReconstructGlyf)": "woff2：Buffer::Read（由 ReconstructGlyf 调用）",
     "lcms: TetrahedralInterpFloat": "lcms：TetrahedralInterpFloat",
-    "no weights": "不加权", "clean oracle": "干净的 oracle", "oracle #1, others random": "oracle 排第 1，其余随机",
+    "no weights": "不加权", "oracle #1, others equal": "oracle 排第 1，其余相同", "oracle #1, others random": "oracle 排第 1，其余随机",
     "oracle top 5%, others random": "oracle 在前 5%，其余随机", "oracle top 25%, others random": "oracle 在前 25%，其余随机",
     "s": "秒", "0 s": "0 秒", "300 s": "300 秒", "600 s": "600 秒", "900 s": "900 秒", "not found": "未找到",
     "time to first crash per trial (Linux, 900 s budget); bar = median": "每次试验的首次崩溃时间（Linux，预算 900 秒）；竖线为中位数",
-    "percentile among the target's sampled regions (lower = more suspicious)": "在目标抽样区域中的百分位（越低越可疑）",
+    "percentile among the target's sampled chunks (lower = more suspicious)": "在目标抽样片段中的百分位（越低越可疑）",
     "answer directly, median 35.2": "直接回答，中位数 35.2",
-    "after writing its own contract, median 20.1": "先写自己的契约，中位数 20.1",
-    "with another function's contract, median 50.0": "用另一个函数的契约，中位数 50.0",
+    "after writing its own doc comment, median 20.1": "先写自己的注释，中位数 20.1",
+    "with another function's comment, median 50.0": "用另一个函数的注释，中位数 50.0",
     "function size only, median 14.2": "只看函数大小，中位数 14.2",
-    "14B, direct": "14B，直接回答", "14B, contract first": "14B，先写契约", "14B, full reasoning": "14B，完整推理",
-    "27B, direct": "27B，直接回答", "27B, contract first": "27B，先写契约", "27B, full reasoning": "27B，完整推理",
+    "14B, direct": "14B，直接回答", "14B, comment first": "14B，先写注释", "14B, full reasoning": "14B，完整推理",
+    "27B, direct": "27B，直接回答", "27B, comment first": "27B，先写注释", "27B, full reasoning": "27B，完整推理",
     "rule: fewer if-checks": "规则：if 检查更少", "rule: less code": "规则：代码更少",
     "pair accuracy (buggy scored above fixed)": "配对准确率（有 bug 的版本得分更高）",
     "bugs fixed after release": "模型发布后修复的 bug",
@@ -80,14 +80,14 @@ N = None
 ORACLE = {
     "woff2: Buffer::Read (called from ReconstructGlyf)": [
         ("no weights", [52, 158, 222, 230, 320, 384, 390, 728], 275),
-        ("clean oracle", [11, 34, 83, 142, 145, 298, 369, 469], 143),
+        ("oracle #1, others equal", [11, 34, 83, 142, 145, 298, 369, 469], 143),
         ("oracle #1, others random", [97, 101, 114, 188, 326, 380, 828, N], 257),
         ("oracle top 5%, others random", [2, 11, 48, 249, 274, 402, 686, N], 262),
         ("oracle top 25%, others random", [188, 342, 599, 710, 761, N, N, N], 736),
     ],
     "lcms: TetrahedralInterpFloat": [
         ("no weights", [126, 166, 356, 563, 606, N, N, N], 585),
-        ("clean oracle", [198, 500, 538, 686, N, N, N, N], 793),
+        ("oracle #1, others equal", [198, 500, 538, 686, N, N, N, N], 793),
         ("oracle #1, others random", [223, 327, 803, N, N, N, N, N], None),
         ("oracle top 5%, others random", [197, 334, 593, N, N, N, N, N], None),
         ("oracle top 25%, others random", [304, 398, 483, N, N, N, N, N], None),
@@ -96,13 +96,13 @@ ORACLE = {
 
 # README §3.12 / bench/results/pairs.txt: share of pairs whose buggy version gets the higher yes-vs-no readout.
 PAIRS = [  # (label, new bugs, PrimeVul)
-    ("14B, direct", 0.53, 0.51), ("14B, contract first", 0.50, 0.50), ("14B, full reasoning", 0.66, 0.51),
-    ("27B, direct", 0.76, 0.60), ("27B, contract first", 0.76, 0.60), ("27B, full reasoning", 0.62, 0.55),
+    ("14B, direct", 0.53, 0.51), ("14B, comment first", 0.50, 0.50), ("14B, full reasoning", 0.66, 0.51),
+    ("27B, direct", 0.76, 0.60), ("27B, comment first", 0.76, 0.60), ("27B, full reasoning", 0.62, 0.55),
     ("rule: fewer if-checks", 0.71, 0.65), ("rule: less code", 0.85, 0.86),
 ]
 VERDICTS = [  # new bugs: both right, Yes on both, No on both, both wrong
     ("14B, direct", 0.00, 1.00, 0.00, 0.00), ("14B, full reasoning", 0.20, 0.65, 0.09, 0.05),
-    ("27B, direct", 0.11, 0.36, 0.51, 0.01), ("27B, contract first", 0.17, 0.41, 0.40, 0.03),
+    ("27B, direct", 0.11, 0.36, 0.51, 0.01), ("27B, comment first", 0.17, 0.41, 0.40, 0.03),
     ("27B, full reasoning", 0.22, 0.66, 0.07, 0.05),
 ]
 
@@ -118,7 +118,7 @@ def ranking(out):
     ax.set_yticks(range(len(rows)), [f"{f}  ({t})" for t, f, *_ in rows], fontsize=8.5)
     ax.invert_yaxis()
     ax.set_xlim(0, 100)
-    ax.set_xlabel(tr("percentile among the target's code regions (lower = more suspicious)"))
+    ax.set_xlabel(tr("percentile among the target's chunks (lower = more suspicious)"))
     ax.grid(axis="x", color=GRID, lw=0.8)
     ax.set_axisbelow(True)
     ax.legend(handles=[
@@ -175,13 +175,13 @@ def contract(out, path):
                                      for k in keys], fontsize=8.5)
     ax.invert_yaxis()
     ax.set_xlim(0, 100)
-    ax.set_xlabel(tr("percentile among the target's sampled regions (lower = more suspicious)"))
+    ax.set_xlabel(tr("percentile among the target's sampled chunks (lower = more suspicious)"))
     ax.grid(axis="x", color=GRID, lw=0.8)
     ax.set_axisbelow(True)
     ax.legend(handles=[
         Line2D([], [], marker="o", ls="", color=SAND, label=tr("answer directly, median 35.2")),
-        Line2D([], [], marker="o", ls="", color=CLAY, label=tr("after writing its own contract, median 20.1")),
-        Line2D([], [], marker="x", ls="", color=SKY, label=tr("with another function's contract, median 50.0")),
+        Line2D([], [], marker="o", ls="", color=CLAY, label=tr("after writing its own doc comment, median 20.1")),
+        Line2D([], [], marker="x", ls="", color=SKY, label=tr("with another function's comment, median 50.0")),
         Line2D([], [], marker="|", ls="", color=SLATE, markersize=9, label=tr("function size only, median 14.2")),
     ], loc="upper center", bbox_to_anchor=(0.32, -0.14), ncol=2, frameon=False, fontsize=8.5)
     fig.tight_layout()
