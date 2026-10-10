@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.mypy_cache/
+.DS_Store
+*.egg-info/
+*.dSYM/
+llmfuzz-out/
+*.weights
+*.weights.json
+*.llmcache.json
+crash-*
+timeout-*
+oom-*

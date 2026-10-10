@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install clang and LLVM tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang llvm
+          clang --version
+      - name: Let ASan start (it fails with the runner's high-entropy ASLR)
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Install llmfuzz
+        run: pip install -e '.[dev]'
+      - name: Type check (strict), for Linux and macOS code paths
+        run: |
+          mypy
+          mypy --platform darwin
+      - name: Tests (the lens tests need the [llm] extra and are skipped)
+        run: python -m unittest -v

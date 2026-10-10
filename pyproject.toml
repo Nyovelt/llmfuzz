@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmfuzz"
+version = "0.1.0"
+description = "Coverage-guided fuzzer for C/C++ that spends more time on suspicious code (function size, an LLM's hidden states, or your own scores)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+llm = ["torch", "transformers>=4.51", "huggingface_hub"]  # only needed where functions are scored
+dev = ["mypy>=1.10"]
+
+[project.urls]
+Repository = "https://github.com/Nyovelt/llmfuzz"
+Report = "https://aaaab3n.moe/llm-guided-fuzzing"
+
+[project.scripts]
+llmfuzz = "llmfuzz.cli:main"
+llmfuzz-cc = "llmfuzz.build:cc"
+"llmfuzz-c++" = "llmfuzz.build:cxx"
+
+[tool.setuptools]
+packages = ["llmfuzz"]
+
+[tool.setuptools.package-data]
+llmfuzz = ["runtime/*.c", "probes/*.npz", "py.typed"]
+
+[tool.mypy]
+strict = true
+files = ["llmfuzz", "tests", "examples"]
+
+[[tool.mypy.overrides]]  # optional dependencies (the [llm] extra)
+module = ["torch", "torch.*", "transformers", "transformers.*", "huggingface_hub", "tokenizers", "tokenizers.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]  # their ignores are for unannotated torch / transformers calls, which need the [llm] extra
+module = ["llmfuzz.lens", "tests.test_lens"]
+warn_unused_ignores = false
