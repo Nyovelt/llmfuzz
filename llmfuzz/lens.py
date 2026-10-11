@@ -14,11 +14,12 @@ it to a bug logit. Without a probe, a zero-shot yes-vs-no lens score is used.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import sys
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -74,6 +75,54 @@ def _fetch(spec: str) -> str:
     return str(hf_hub_download(repo, fname))
 
 
+def unit_lower_inverse(A: torch.Tensor) -> torch.Tensor:
+    """Inverse of the unit lower-triangular matrix whose strict lower triangle is A's (A's diagonal counts as 1, its
+    upper part is ignored), by recursive 2x2 blocks: [[X11, 0], [-X22 L21 X11, X22]]. Both diagonal blocks are
+    inverted in one batched call, so the depth is log2(n) and every step is a batched matmul. (The power series
+    sum_j (-N)^j looks cheaper but cancels catastrophically in fp32 on real gated-delta systems.)"""
+    import torch
+
+    n = A.shape[-1]
+    if n == 1:
+        return torch.ones_like(A)
+    h = n // 2
+    if n % 2 == 0:
+        both = unit_lower_inverse(torch.stack([A[..., :h, :h], A[..., h:, h:]]))
+        x11, x22 = both[0], both[1]
+    else:
+        x11, x22 = unit_lower_inverse(A[..., :h, :h]), unit_lower_inverse(A[..., h:, h:])
+    x21 = -(x22 @ (A[..., h:, :h] @ x11))
+    return torch.cat([torch.cat([x11, torch.zeros_like(A[..., :h, h:])], -1), torch.cat([x21, x22], -1)], -2)
+
+
+_MPS_PATCHED = False
+
+
+def _patch_mps_solve_triangular() -> None:
+    """Speed up small unit lower-triangular solves on MPS.
+
+    torch.linalg.solve_triangular is very slow on MPS: the gated delta rule of Qwen3.5/3.6's linear-attention
+    layers solves batches of 64x64 systems with it, which took 75% of a Qwen3.6-27B forward pass on an M1 Ultra.
+    Small unit lower-triangular solves go through unit_lower_inverse instead (batched matmuls; same result to
+    ~2e-7 relative on systems captured from that model).
+    """
+    global _MPS_PATCHED
+    import torch
+
+    if _MPS_PATCHED:
+        return
+    orig: Callable[..., torch.Tensor] = torch.linalg.solve_triangular
+
+    def solve(A: torch.Tensor, B: torch.Tensor, *, upper: bool, left: bool = True, unitriangular: bool = False,
+              out: torch.Tensor | None = None) -> torch.Tensor:
+        if A.device.type != "mps" or upper or not left or not unitriangular or out is not None or A.shape[-1] > 64:
+            return orig(A, B, upper=upper, left=left, unitriangular=unitriangular, out=out)
+        return unit_lower_inverse(A) @ B
+
+    setattr(torch.linalg, "solve_triangular", solve)
+    _MPS_PATCHED = True
+
+
 class Readout(NamedTuple):
     logp: NDArray[np.float32]  # [N, len(layers), len(vocab)] lens log-probs at the question
     top: NDArray[np.int64]  # [N, len(layers), top] the lens's top tokens there (if top > 0)
@@ -83,9 +132,11 @@ class Readout(NamedTuple):
 class Lens:
     """A causal LM plus a fitted Jacobian lens, read out at the last position."""
 
-    def __init__(self, model: str = DEFAULT_MODEL, lens: str = DEFAULT_LENS, device: str | None = None) -> None:
+    def __init__(self, model: str = DEFAULT_MODEL, lens: str = DEFAULT_LENS, device: str | None = None,
+                 dtype: str | None = None) -> None:
         self.model_id, self.lens_spec, self.name = model, lens, f"{model}|{lens}"
         self._device = device
+        self.dtype = dtype  # bf16 / fp16 / fp32; default fp32 on the CPU, bf16 elsewhere
         self._n_layers: int | None = None
         # torch, tokenizer and weights load on first use: cached scores need none of them
         self._tok: Any = None  # transformers tokenizer
@@ -120,10 +171,18 @@ class Lens:
         from transformers import AutoModelForCausalLM
 
         log(f"loading {self.model_id} on {self.device} and lens {self.lens_spec}")
-        dtype = torch.float32 if self.device == "cpu" else torch.bfloat16
-        model: Any = AutoModelForCausalLM.from_pretrained(self.model_id, dtype=dtype)
-        self.model = model.to(self.device).eval()
-        self.decoder = self.model.model
+        load_dtype = torch.float32 if self.device == "cpu" else torch.bfloat16
+        dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}.get(self.dtype or "", load_dtype)
+        # with accelerate the weights go straight to the device; otherwise a big model sits in RAM twice while it moves
+        direct = self.device != "cpu" and importlib.util.find_spec("accelerate") is not None
+        model: Any = AutoModelForCausalLM.from_pretrained(self.model_id, dtype=load_dtype,
+                                                          **({"device_map": self.device} if direct else {}))
+        model = model if direct else model.to(self.device)
+        # convert on the device: loading a bf16 checkpoint straight as fp16 onto MPS crashed (SIGSEGV)
+        self.model = (model if dtype == load_dtype else model.to(dtype)).eval()
+        self.decoder = getattr(self.model.model, "language_model", self.model.model)  # multimodal checkpoints wrap it
+        if self.device == "mps":
+            _patch_mps_solve_triangular()
         self._J = torch.load(_fetch(self.lens_spec), map_location="cpu", weights_only=True)["J"]
 
     def vocab_ids(self, words: Iterable[str]) -> list[int]:

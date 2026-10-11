@@ -95,7 +95,7 @@ def cmd_analyze(a: argparse.Namespace) -> None:
                   + (" ..." if len(missing) > 5 else ""))
         llm, source = [0.0 if h is None else h for h in hits], f"scores={os.path.basename(a.scores)}"
     elif a.control not in ("uniform", "size", "oracle"):
-        lens = L.Lens(a.model, a.lens, a.device)
+        lens = L.Lens(a.model, a.lens, a.device, a.dtype)
         probe = L.Probe.load(a.probe) if a.probe else L.default_probe(lens)
         llm, lines = L.score_functions([(f.file, f.text) for f in funcs], lens, probe,
                                        a.cache or a.binary + ".llmcache.json", max_tok=a.max_tok, lines=a.line_weight > 0)
@@ -215,7 +215,7 @@ def cmd_run(a: argparse.Namespace) -> None:
 def cmd_train(a: argparse.Namespace) -> None:
     from . import lens as L
 
-    L.train_probe(L.Lens(a.model, a.lens, a.device), a.train, a.out, a.eval, l2=a.l2, max_tok=a.max_tok)
+    L.train_probe(L.Lens(a.model, a.lens, a.device, a.dtype), a.train, a.out, a.eval, l2=a.l2, max_tok=a.max_tok)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -232,6 +232,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help=f"HF causal LM (default {DEFAULT_MODEL})")
         g.add_argument("--lens", default=DEFAULT_LENS if defaults else None, help="J-lens file or hf_repo:path")
         g.add_argument("--device", help="cuda / mps / cpu (auto)")
+        g.add_argument("--dtype", choices=["bf16", "fp16", "fp32"],
+                       help="model precision (default fp32 on the CPU, else bf16; fp16 is twice as fast on Apple M1)")
         return g
 
     def fuzz_args(p: argparse.ArgumentParser) -> None:

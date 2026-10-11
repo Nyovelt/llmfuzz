@@ -8,7 +8,7 @@ import unittest
 
 import numpy as np
 
-from llmfuzz.lens import Lens, Probe, auc, default_probe, score_functions
+from llmfuzz.lens import Lens, Probe, auc, default_probe, score_functions, unit_lower_inverse
 
 HAVE_LLM = all(importlib.util.find_spec(m) for m in ("torch", "transformers", "tokenizers"))
 CODE = [("a.c", "int f(int *p) {\n  return p[0];\n}\n"),
@@ -81,6 +81,32 @@ class TinyLens(unittest.TestCase):
         path = os.path.join(self.tmp.name, "probe.npz")
         probe.save(path)
         np.testing.assert_allclose(Probe.load(path).logit(feats), probe.logit(feats))
+
+
+@unittest.skipUnless(HAVE_LLM, "needs torch")
+class UnitLowerInverse(unittest.TestCase):
+    def test_matches_triangular_solve(self) -> None:
+        import torch
+
+        g = torch.Generator().manual_seed(0)
+        for n in (1, 2, 3, 17, 32, 33, 64):
+            A = torch.randn(2, 3, n, n, generator=g, dtype=torch.float64)  # diagonal and upper part must be ignored
+            B = torch.randn(2, 3, n, 5, generator=g, dtype=torch.float64)
+            want = torch.linalg.solve_triangular(A, B, upper=False, unitriangular=True)
+            torch.testing.assert_close(unit_lower_inverse(A) @ B, want, rtol=1e-9, atol=1e-9, msg=f"n={n}")
+
+    def test_gated_delta_like_systems_in_fp32(self) -> None:
+        """beta_i * <k_i, k_j> for unit keys, as in the gated delta rule: a power series loses all accuracy here."""
+        import torch
+
+        g = torch.Generator().manual_seed(1)
+        k = torch.nn.functional.normalize(torch.randn(4, 64, 128, generator=g, dtype=torch.float64) + 2.0, dim=-1)
+        beta = torch.rand(4, 64, 1, generator=g, dtype=torch.float64)
+        A = (beta * k) @ k.transpose(-1, -2)
+        B = torch.randn(4, 64, 128, generator=g, dtype=torch.float64)
+        want = torch.linalg.solve_triangular(A, B, upper=False, unitriangular=True)
+        got = (unit_lower_inverse(A.float()) @ B.float()).double()
+        self.assertLess(float((got - want).abs().max() / want.abs().max()), 1e-5)
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ requires-python = ">=3.10"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-llm = ["torch", "transformers>=4.51", "huggingface_hub"]  # only needed where functions are scored
+llm = ["torch", "transformers>=4.51", "huggingface_hub", "accelerate"]  # only needed where functions are scored
 dev = ["mypy>=1.10"]
 
 [project.urls]
