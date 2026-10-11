@@ -199,7 +199,7 @@ def cmd_run(a: argparse.Namespace) -> None:
         else:
             argv = ["analyze", a.binary, "-o", weights, "--top", str(a.top)]
             argv += ["--scores", scores] if scores else ["--control", "size" if prior == "size" else "none"]
-            for opt in ("model", "lens", "device"):
+            for opt in ("model", "lens", "device", "dtype"):
                 if getattr(a, opt):
                     argv += [f"--{opt}", getattr(a, opt)]
             cmd_analyze(build_parser().parse_args(argv))

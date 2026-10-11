@@ -1,0 +1,40 @@
+{
+ "model": "Qwen/Qwen3-4B",
+ "lens": "neuronpedia/jacobian-lens:qwen3-4b/jlens/Salesforce-wikitext/Qwen3-4B_jacobian_lens.pt",
+ "dtype": "bf16",
+ "layers": [
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35
+ ],
+ "n_vocab": 179,
+ "test_m": {
+  "n": 600,
+  "pos": 300,
+  "probe": 0.5648888888888889,
+  "zero_shot": 0.5523333333333333,
+  "lines": 0.5067111111111111,
+  "chars": 0.4985,
+  "probe+lines": 0.5502666666666667,
+  "zero_shot+lines": 0.5301111111111111
+ },
+ "test_nat": {
+  "n": 1000,
+  "pos": 150,
+  "probe": 0.6170117647058824,
+  "zero_shot": 0.6788,
+  "lines": 0.8003529411764706,
+  "chars": 0.7955215686274509,
+  "probe+lines": 0.7729882352941176,
+  "zero_shot+lines": 0.788956862745098
+ }
+}

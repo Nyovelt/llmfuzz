@@ -25,9 +25,9 @@ plt.rcParams.update({
 
 ZH = {  # labels of the Chinese version; function and target names stay as they are
     "percentile among the target's chunks (lower = more suspicious)": "在目标所有片段中的百分位（越低越可疑）",
-    "LLM (Qwen3-4B J-lens probe), median 27.0": "LLM（Qwen3-4B J-lens probe），中位数 27.0",
+    "LLM (Qwen3.6-27B J-lens probe), median 41.2": "LLM（Qwen3.6-27B J-lens probe），中位数 41.2",
     "function size only, median 14.6": "只看函数大小，中位数 14.6",
-    "LLM scores shuffled, median 56.2": "打乱的 LLM 分数，中位数 56.2",
+    "LLM scores shuffled, median 53.9": "打乱的 LLM 分数，中位数 53.9",
     "woff2: Buffer::Read (called from ReconstructGlyf)": "woff2：Buffer::Read（由 ReconstructGlyf 调用）",
     "lcms: TetrahedralInterpFloat": "lcms：TetrahedralInterpFloat",
     "no weights": "不加权", "oracle #1, others equal": "oracle 排第 1，其余相同", "oracle #1, others random": "oracle 排第 1，其余随机",
@@ -59,20 +59,20 @@ def fname(fig):
 
 
 # README §2: percentile of each FTS bug function among all regions of its target (lower = ranked higher).
-RANKING = [  # (target, function, llm, size, shuffled)
-    ("libcxxabi", "parse_floating_number", 2.5, 45.6, 62.0),
-    ("libcxxabi", "parse_function_type", 98.7, 24.1, 19.0),
-    ("libcxxabi", "parse_unnamed_type_name", 45.6, 21.5, 92.4),
-    ("pcre2", "match", 3.2, 0.5, 3.2),
-    ("lcms", "TetrahedralInterpFloat", 23.9, 3.3, 28.9),
-    ("woff2", "ReconstructGlyf", 6.9, 3.1, 12.9),
-    ("woff2", "Buffer::Read", 11.2, 50.7, 93.1),
-    ("re2", "NFA::Search", 8.9, 1.6, 29.8),
-    ("libxml2", "xmlParseXMLDecl", 71.2, 14.6, 73.7),
-    ("libxml2", "xmlDictComputeFastQKey", 63.6, 29.8, 45.0),
-    ("libxml2", "xmlDictComputeFastKey", 45.5, 50.5, 81.5),
-    ("libxml2", "xmlCurrentChar", 40.1, 10.8, 76.6),
-    ("openssl", "tls1_process_heartbeat", 27.0, 10.9, 56.2),
+RANKING = [  # (target, function, llm, size, shuffled); llm = Qwen3.6-27B probe (bench/results/qwen3.6-27b/fts_ranks.json)
+    ("libcxxabi", "parse_floating_number", 41.2, 45.0, 57.5),
+    ("libcxxabi", "parse_function_type", 87.5, 23.8, 62.5),
+    ("libcxxabi", "parse_unnamed_type_name", 28.8, 21.2, 68.8),
+    ("pcre2", "match", 5.0, 0.5, 4.5),
+    ("lcms", "TetrahedralInterpFloat", 45.0, 3.3, 19.6),
+    ("woff2", "ReconstructGlyf", 13.1, 3.1, 10.5),
+    ("woff2", "Buffer::Read", 0.9, 50.6, 73.9),
+    ("re2", "NFA::Search", 16.1, 1.6, 53.9),
+    ("libxml2", "xmlParseXMLDecl", 66.8, 14.6, 90.5),
+    ("libxml2", "xmlDictComputeFastQKey", 93.6, 29.8, 12.1),
+    ("libxml2", "xmlDictComputeFastKey", 98.4, 50.5, 33.3),
+    ("libxml2", "xmlCurrentChar", 46.1, 10.8, 88.6),
+    ("openssl", "tls1_process_heartbeat", 4.3, 10.9, 18.7),
 ]
 
 # README §3.10: time to first crash (s) per trial on Linux, 8 x 900 s; None = not found.
@@ -122,10 +122,10 @@ def ranking(out):
     ax.grid(axis="x", color=GRID, lw=0.8)
     ax.set_axisbelow(True)
     ax.legend(handles=[
-        Line2D([], [], marker="o", ls="", color=CLAY, label=tr("LLM (Qwen3-4B J-lens probe), median 27.0")),
+        Line2D([], [], marker="o", ls="", color=CLAY, label=tr("LLM (Qwen3.6-27B J-lens probe), median 41.2")),
         Line2D([], [], marker="o", ls="", color=SLATE, label=tr("function size only, median 14.6")),
         Line2D([], [], marker="o", ls="", markerfacecolor="white", markeredgecolor=SAND,
-               label=tr("LLM scores shuffled, median 56.2")),
+               label=tr("LLM scores shuffled, median 53.9")),
     ], loc="upper center", bbox_to_anchor=(0.32, -0.14), ncol=2, frameon=False, fontsize=8.5)
     fig.tight_layout()
     fig.savefig(f"{out}/{fname('fig-1-ranking')}")

@@ -5,8 +5,9 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
-from llmfuzz import pcmap
+from llmfuzz import cli, pcmap
 from llmfuzz.campaign import signature, symbolize_report
 from llmfuzz.cli import _matches, load_scores
 
@@ -151,6 +152,24 @@ class ScoreFiles(unittest.TestCase):
         self.assertTrue(_matches("ns::parse", "ns::parse"))
         self.assertFalse(_matches("reparse", "parse"))
         self.assertFalse(_matches("ns::parse", "other::parse"))
+
+
+class RunCommand(unittest.TestCase):
+    def test_model_options_reach_analyze(self) -> None:
+        class Stop(Exception):
+            pass
+
+        with tempfile.TemporaryDirectory() as d:
+            binary = os.path.join(d, "target")
+            with open(binary, "w") as f:
+                f.write("#!/bin/sh\n")
+            os.chmod(binary, 0o755)
+            args = cli.build_parser().parse_args(["run", binary, "--prior", "llm", "--model", "M", "--lens", "L",
+                                                  "--device", "cpu", "--dtype", "fp16"])
+            with mock.patch.object(cli, "cmd_analyze", side_effect=Stop) as analyze, self.assertRaises(Stop):
+                cli.cmd_run(args)
+            a = analyze.call_args.args[0]
+            self.assertEqual((a.model, a.lens, a.device, a.dtype, a.control), ("M", "L", "cpu", "fp16", "none"))
 
 
 if __name__ == "__main__":
